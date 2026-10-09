@@ -30,9 +30,23 @@
     var x = (b.lng - a.lng) * Math.cos(a.lat * Math.PI / 180) * 111.32, y = (b.lat - a.lat) * 110.57;
     return Math.sqrt(x * x + y * y);
   }
+  // "21:00 น." for today, otherwise with the date.
+  function stamp(d) {
+    if (!d) return '–';
+    var day = function (x) { return x.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); };
+    return day(d) === day(new Date())
+      ? d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) + ' น.'
+      : when(d);
+  }
   function dist(d) { return d < 1 ? Math.round(d * 100) * 10 + ' ม.' : d < 10 ? d.toFixed(1) + ' กม.' : Math.round(d) + ' กม.'; }
 
   // ---------- parse ----------
+  var DAY = 24 * 3600 * 1000;
+
+  // `start` is when the flooding began, not when it was last checked. The Department of Highways
+  // re-sends every open report several times a day, each time pushing `stop` to sync time + 24 h,
+  // so stop - 24 h is the last time the department confirmed the report. Reports from other users
+  // are never re-sent, so their report time is all we have.
   function fromEvent(e) {
     var title = e.title || '';
     var desc = e.description || '';
@@ -56,8 +70,16 @@
       prov: prov,
       lat: +e.latitude, lng: +e.longitude,
       start: parseTH(e.start),
+      confirmed: confirmedAt(e),
+      agency: e.contributor === 'DOH Admin',
       source: e.contributor === 'DOH Admin' ? 'กรมทางหลวง' : 'ผู้ใช้ Longdo Traffic'
     };
+  }
+
+  function confirmedAt(e) {
+    var stop = parseTH(e.stop);
+    if (e.contributor === 'DOH Admin' && stop) return new Date(Math.min(Date.now(), stop - DAY));
+    return parseTH(e.start);
   }
 
   function fromSensor(r) {
@@ -73,6 +95,8 @@
       prov: 'กรุงเทพมหานคร',
       lat: r.lat, lng: r.lng,
       start: parseTH(r.since || r.measured_at),
+      confirmed: parseTH(r.measured_at),
+      agency: true,
       source: 'เซ็นเซอร์ สำนักการระบายน้ำ กทม.'
     };
   }
@@ -132,9 +156,33 @@
     }, function () { return []; });
     return Promise.all([events, sensors]).then(function (res) {
       var items = res[0].concat(res[1]);
-      items.forEach(function (it) { it.sev = severity(it); });
+      var now = Date.now();
+      items.forEach(function (it) {
+        it.sev = severity(it);
+        // Not re-checked for a day (sensors: 2 hours): shown, but marked and left out of route checks.
+        it.stale = !it.confirmed || now - it.confirmed > (it.status === 'sensor' ? DAY / 12 : DAY);
+      });
       return items;
     });
+  }
+
+  // One line saying how current a report is.
+  function freshness(it) {
+    var age = it.confirmed ? ' (' + ago(it.confirmed) + ')' : '';
+    if (it.status === 'sensor') return 'เซ็นเซอร์วัดล่าสุด ' + stamp(it.confirmed) + age;
+    if (it.agency) return 'กรมทางหลวงยืนยันล่าสุด ' + stamp(it.confirmed) + age;
+    return 'ผู้ใช้รายงานเมื่อ ' + stamp(it.confirmed) + age + ' · ยังไม่มีหน่วยงานยืนยัน';
+  }
+
+  function since(it) {
+    if (!it.start || !it.agency) return ''; // a user report's start is its report time, already shown
+    var days = Math.floor((Date.now() - it.start) / DAY);
+    return (it.status === 'sensor' ? 'มีน้ำ' : 'ท่วม') + 'ตั้งแต่ ' + when(it.start) + (days >= 1 ? ' (' + days + ' วัน)' : '');
+  }
+
+  // Latest confirmation from an agency, for the "data as of" line.
+  function latest(items) {
+    return items.reduce(function (m, it) { return it.agency && it.confirmed && (!m || it.confirmed > m) ? it.confirmed : m; }, null);
   }
 
   function toggleTheme(after) {
@@ -147,6 +195,7 @@
 
   window.Floods = {
     load: load, severity: severity, getJSON: getJSON, toggleTheme: toggleTheme,
+    freshness: freshness, since: since, latest: latest, stamp: stamp,
     esc: esc, css: css, parseTH: parseTH, ago: ago, when: when, km: km, dist: dist
   };
 })();

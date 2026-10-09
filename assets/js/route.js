@@ -13,7 +13,9 @@
   var MAX_AVOID = 10;     // the public router caps excluded areas at 10 km of perimeter (~0.9 km each)
   var RISK_MIN = 3;       // minutes of extra driving worth one unit of passable-water risk
 
-  var R = { items: [], loaded: null, a: null, b: null, veh: 'small', routes: [], sel: 0, busy: false };
+  var RELOAD_MS = 5 * 60 * 1000; // re-fetch reports before a check if they are older than this
+
+  var R = { items: [], loaded: null, loadedAt: 0, a: null, b: null, veh: 'small', routes: [], sel: 0, busy: false };
   var $ = function (id) { return document.getElementById(id); };
 
   // ---------- map ----------
@@ -72,6 +74,7 @@
     // One entry per report, at its closest approach, even where the route passes it twice.
     var hits = [];
     R.items.forEach(function (it) {
+      if (it.stale) return; // not re-checked in a day; listed on the report page, not used to judge a route
       if (!(it.lat > box.s && it.lat < box.n && it.lng > box.w && it.lng < box.e)) return;
       var n = nearest(pts, cum, it);
       if (n.d <= HIT_KM) hits.push({ it: it, along: n.along });
@@ -148,6 +151,7 @@
     $('result').innerHTML = '<div class="panel rt-wait"><span class="sk sk--row"></span><span class="sk sk--row"></span></div>';
     shareURL();
 
+    if (Date.now() - R.loadedAt > RELOAD_MS) R.loaded = loadReports();
     R.loaded.then(function () { return route(R.a, R.b); }).then(function (d) {
       var list = [analyse(d.trip, 'normal')].concat((d.alternates || []).map(function (x) { return analyse(x.trip, 'alt'); }));
       if (list.every(function (r) { return r.blocked.length; })) return withDetour(list);
@@ -211,7 +215,16 @@
     return m < 60 ? m + ' นาที' : Math.floor(m / 60) + ' ชม. ' + (m % 60 ? (m % 60) + ' นาที' : '');
   }
 
+  function asOf() {
+    var last = F.latest(R.items);
+    return last ? '<span class="rt-asof">ตรวจกับรายงานน้ำท่วม ณ ' + F.stamp(last) + ' (หน่วยงานยืนยันล่าสุด ' + F.ago(last) + ')</span>' : '';
+  }
+
   function verdict() {
+    return verdictBody().replace(/<\/div>$/, asOf() + '</div>');
+  }
+
+  function verdictBody() {
     var best = R.routes[0];
     var fastest = R.routes.filter(function (r) { return r.fastest; })[0] || best;
     var extra = best !== fastest && fastest.blocked.length && !best.blocked.length
@@ -241,7 +254,8 @@
       '<span class="rt-hit__main"><span class="rt-chip rt-chip--' + s.color + '">' + esc(s.label) + '</span>' +
         '<span class="rt-hit__title">' + esc(h.it.title) + '</span>' +
         (h.it.place ? '<span class="rt-hit__place">' + esc(h.it.place) + '</span>' : '') +
-        '<span class="rt-hit__adv' + (s.block[R.veh] ? ' is-block' : '') + '">' + esc(s.advice) + '</span></span>' +
+        '<span class="rt-hit__adv' + (s.block[R.veh] ? ' is-block' : '') + '">' + esc(s.advice) + '</span>' +
+        '<span class="rt-hit__time">' + esc(F.freshness(h.it)) + '</span></span>' +
     '</li>';
   }
 
@@ -428,18 +442,24 @@
   });
   $('theme').addEventListener('click', function () { F.toggleTheme(function () { if (R.routes.length) draw(); }); });
 
-  R.loaded = F.load().then(function (items) {
-    R.items = items;
-    var closed = items.filter(function (it) { return it.sev.key === 'closed' || it.sev.key === 'small'; }).length;
-    $('updated').textContent = 'รายงานน้ำท่วม ' + items.length + ' จุด · ผ่านไม่ได้ ' + closed + ' จุด';
-    $('live').className = 'live is-fresh';
-  }, function (err) {
-    console.error(err);
-    $('notice').hidden = false;
-    $('notice').textContent = 'โหลดรายงานน้ำท่วมไม่สำเร็จ เส้นทางที่แสดงจะยังไม่ได้ตรวจน้ำท่วม';
-    $('live').className = 'live is-stale';
-    $('updated').textContent = 'โหลดรายงานไม่สำเร็จ';
-  });
+  function loadReports() {
+    return F.load().then(function (items) {
+      R.items = items;
+      R.loadedAt = Date.now();
+      var last = F.latest(items);
+      var closed = items.filter(function (it) { return !it.stale && (it.sev.key === 'closed' || it.sev.key === 'small'); }).length;
+      $('updated').textContent = 'ผ่านไม่ได้ ' + closed + ' จุด · ข้อมูลล่าสุด ' + (last ? F.stamp(last) : '–');
+      $('live').className = 'live is-fresh';
+      $('notice').hidden = true;
+    }, function (err) {
+      console.error(err);
+      $('notice').hidden = false;
+      $('notice').textContent = 'โหลดรายงานน้ำท่วมไม่สำเร็จ เส้นทางที่แสดงจะยังไม่ได้ตรวจน้ำท่วม';
+      $('live').className = 'live is-stale';
+      $('updated').textContent = 'โหลดรายงานไม่สำเร็จ';
+    });
+  }
+  R.loaded = loadReports();
 
   fromURL();
 })();

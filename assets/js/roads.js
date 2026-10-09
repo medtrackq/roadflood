@@ -36,7 +36,7 @@
       return list.sort(function (a, b) { return a._km - b._km; });
     }
     return list.sort(function (a, b) {
-      return (STATUS[a.status].order - STATUS[b.status].order) || ((b.start || 0) - (a.start || 0));
+      return (STATUS[a.status].order - STATUS[b.status].order) || (a.stale - b.stale) || ((b.confirmed || 0) - (a.confirmed || 0));
     });
   }
 
@@ -96,7 +96,8 @@
         '</span>' +
         '<span class="rr-item__title">' + esc(it.title) + '</span>' +
         '<span class="rr-item__place">' + esc(it.place) + '</span>' +
-        '<span class="rr-item__time">' + (it.status === 'sensor' ? 'มีน้ำ' : 'รายงาน') + 'ตั้งแต่ ' + when(it.start) + ' · ' + ago(it.start) + '</span>' +
+        '<span class="rr-item__time' + (it.stale ? ' is-stale' : '') + '">' + esc(F.freshness(it)) + (it.stale ? ' · อาจไม่เป็นปัจจุบัน' : '') + '</span>' +
+        (F.since(it) ? '<span class="rr-item__since">' + esc(F.since(it)) + '</span>' : '') +
       '</button>' +
       (isOpen ? '<div class="rr-item__more">' +
         (it.detail ? '<p class="rr-item__desc">' + esc(it.detail).replace(/\n+/g, '<br>') + '</p>' : '') +
@@ -176,7 +177,8 @@
       renderSummary();
       render(first);
       $('notice').hidden = true;
-      $('updated').textContent = 'อัปเดต ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) + ' น.';
+      var last = F.latest(items);
+      $('updated').textContent = last ? 'ข้อมูลหน่วยงานล่าสุด ' + F.stamp(last) + ' (' + ago(last) + ')' : 'อัปเดตแล้ว';
       $('live').className = 'live is-fresh';
     }).catch(function (err) {
       console.error(err);
