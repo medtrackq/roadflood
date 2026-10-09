@@ -1,0 +1,13 @@
+{
+  "name": "roadflood",
+  "version": "0.1.0",
+  "private": true,
+  "description": "เช็กถนนน้ำท่วมทั่วไทยก่อนออกเดินทาง",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
