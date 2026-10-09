@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>วางแผนเส้นทางเลี่ยงน้ำท่วม</title>
+  <meta name="description" content="ใส่ต้นทางและปลายทาง แล้วดูว่าเส้นทางมีน้ำท่วมไหม พร้อมเส้นเลี่ยงจุดที่ผ่านไม่ได้">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#eef3f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#071219" media="(prefers-color-scheme: dark)">
+  <script>try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">ข้ามไปที่เนื้อหา</a>
+
+  <header class="top">
+    <div class="wrap top__row">
+      <a class="brand" href="./" aria-label="เช็กถนนน้ำท่วม หน้าแรก">
+        <svg class="brand__mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c-3.6 4.6-6.5 8.4-6.5 11.8a6.5 6.5 0 0 0 13 0C18.5 10.9 15.6 7.1 12 2.5z"/></svg>
+        <span class="brand__text">
+          <span class="brand__name">เช็กถนนน้ำท่วม</span>
+          <span class="brand__sub"><i class="live" id="live" aria-hidden="true"></i><span id="updated">กำลังโหลดรายงาน…</span></span>
+        </span>
+      </a>
+      <nav class="nav" aria-label="หน้า">
+        <a href="./">รายงานน้ำท่วม</a>
+        <a href="route.html" class="is-active" aria-current="page">วางแผนเส้นทาง</a>
+      </nav>
+      <div class="top__actions">
+        <button class="icon-btn" id="theme" type="button" aria-label="สลับโหมดสว่าง/มืด" title="สลับโหมดสว่าง/มืด">
+          <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+          <svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap rt" id="main">
+    <div class="notice" id="notice" role="status" hidden></div>
+
+    <div class="rt-body">
+      <div class="rt-side">
+        <form class="rt-form panel" id="form" autocomplete="off">
+          <h1 class="rt-title">เส้นทางนี้น้ำท่วมไหม?</h1>
+
+          <div class="rt-field">
+            <span class="rt-dot rt-dot--a" aria-hidden="true">A</span>
+            <label class="sr-only" for="from">ต้นทาง</label>
+            <input id="from" class="rt-input" type="text" placeholder="ต้นทาง: พิมพ์ชื่อเขต อำเภอ หรือจังหวัด" enterkeyhint="next">
+            <button type="button" class="rt-mini" id="from-gps" title="ใช้ตำแหน่งของฉัน" aria-label="ใช้ตำแหน่งของฉันเป็นต้นทาง">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></svg>
+            </button>
+            <ul class="rt-sug" id="from-sug" role="listbox" hidden></ul>
+          </div>
+
+          <button type="button" class="rt-swap" id="swap" aria-label="สลับต้นทางกับปลายทาง" title="สลับ">⇅</button>
+
+          <div class="rt-field">
+            <span class="rt-dot rt-dot--b" aria-hidden="true">B</span>
+            <label class="sr-only" for="to">ปลายทาง</label>
+            <input id="to" class="rt-input" type="text" placeholder="ปลายทาง: จะไปที่ไหน" enterkeyhint="search">
+            <ul class="rt-sug" id="to-sug" role="listbox" hidden></ul>
+          </div>
+          <p class="muted small rt-tip">หรือแตะบนแผนที่เพื่อเลือกจุด (แตะครั้งแรก = ต้นทาง, ครั้งต่อไป = ปลายทาง)</p>
+
+          <fieldset class="rt-veh">
+            <legend>รถของคุณ</legend>
+            <label><input type="radio" name="veh" value="small" checked><span>🚗 รถเก๋ง / รถเล็ก</span></label>
+            <label><input type="radio" name="veh" value="tall"><span>🛻 กระบะ / รถสูง</span></label>
+          </fieldset>
+
+          <button type="submit" class="btn btn--primary rt-go" id="go">ตรวจเส้นทาง</button>
+        </form>
+
+        <div id="result" aria-live="polite"></div>
+      </div>
+
+      <div class="rt-map-wrap">
+        <div id="map" class="rr-map rt-map" role="region" aria-label="แผนที่เส้นทาง"></div>
+        <ul class="rt-legend" aria-label="ความหมายของสี">
+          <li><i class="sw sw--crit"></i>ผ่านไม่ได้ / น้ำ ≥20 ซม.</li>
+          <li><i class="sw sw--warn"></i>มีน้ำ 10–20 ซม. / ผ่านได้ ระวัง</li>
+          <li><i class="sw sw--low"></i>น้ำ &lt;10 ซม.</li>
+          <li><i class="sw sw--unk"></i>ยังไม่ยืนยัน</li>
+        </ul>
+      </div>
+    </div>
+
+    <section class="rr-help panel">
+      <h2>อ่านผลอย่างไร</h2>
+      <ul>
+        <li>ระบบตรวจจุดน้ำท่วมที่อยู่ห่างจากเส้นทางไม่เกิน 150 ม. แล้วหา<b>เส้นเลี่ยง</b>จุดที่ไม่ควรผ่านสำหรับรถของคุณ</li>
+        <li><b>รถเก๋ง / รถเล็ก</b> จะเลี่ยงทั้งจุดที่ผ่านไม่ได้ จุดที่รถเล็กผ่านไม่ได้ และน้ำลึกตั้งแต่ 20 ซม. · <b>กระบะ / รถสูง</b> จะเลี่ยงเฉพาะจุดที่ผ่านไม่ได้</li>
+        <li>ตัวเลขความลึกมีเฉพาะเซ็นเซอร์ของ กทม. รายงานทางหลวงส่วนใหญ่บอกเพียงว่าผ่านได้หรือไม่</li>
+        <li>เลี่ยงได้เฉพาะจุดที่มีรายงาน ถนนที่ไม่มีรายงานอาจยังมีน้ำ สอบถามเพิ่มได้ที่ <a href="tel:1586">กรมทางหลวง 1586</a> · <a href="tel:1146">กรมทางหลวงชนบท 1146</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <p class="foot__warn"><strong>ไม่ใช่ประกาศทางการ</strong> ใช้ประกอบการตัดสินใจเท่านั้น ตรวจสอบสภาพถนนจริงและปฏิบัติตามเจ้าหน้าที่</p>
+      <p>รายงานน้ำท่วม: <a href="https://traffic.longdo.com" target="_blank" rel="noopener">Longdo Traffic</a> (มูลนิธิ iTIC) จากกรมทางหลวงและผู้ใช้ · เซ็นเซอร์ กทม.: สำนักการระบายน้ำ กรุงเทพมหานคร ผ่าน <a href="https://flood.pop.in.th" target="_blank" rel="noopener">POPNIX Flood</a> · เส้นทาง: <a href="https://valhalla.github.io/valhalla/" target="_blank" rel="noopener">Valhalla</a> (FOSSGIS) · ค้นหาสถานที่: <a href="https://photon.komoot.io" target="_blank" rel="noopener">Photon</a> · แผนที่และข้อมูลถนน © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</p>
+    </div>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="assets/js/floods.js"></script>
+  <script src="assets/js/route.js"></script>
+</body>
+</html>

@@ -27,6 +27,10 @@
           <span class="brand__sub"><i class="live" id="live" aria-hidden="true"></i><span id="updated">กำลังโหลด…</span></span>
         </span>
       </a>
+      <nav class="nav" aria-label="หน้า">
+        <a href="./" class="is-active" aria-current="page">รายงานน้ำท่วม</a>
+        <a href="route.html">วางแผนเส้นทาง</a>
+      </nav>
       <div class="top__actions">
         <button class="icon-btn" id="theme" type="button" aria-label="สลับโหมดสว่าง/มืด" title="สลับโหมดสว่าง/มืด">
           <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
@@ -41,6 +45,12 @@
 
   <main class="wrap rr" id="main">
     <div class="notice" id="notice" role="status" hidden></div>
+
+    <a class="rr-cta" href="route.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/></svg>
+      <span><b>กำลังจะเดินทาง?</b> ใส่ปลายทาง แล้วดูว่าเส้นทางมีน้ำท่วมไหม พร้อมเส้นเลี่ยง</span>
+      <span class="rr-cta__go">วางแผนเส้นทาง →</span>
+    </a>
 
     <section class="rr-sum" aria-live="polite">
       <h1 class="rr-sum__title" id="sum-title">กำลังโหลดรายงานน้ำท่วมถนน…</h1>
@@ -100,6 +110,7 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="assets/js/floods.js"></script>
   <script src="assets/js/roads.js"></script>
 </body>
 </html>

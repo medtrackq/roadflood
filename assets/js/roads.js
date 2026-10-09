@@ -1,9 +1,7 @@
 (function () {
   'use strict';
 
-  // Longdo Traffic sends CORS headers, so the page still works on a static host without server.mjs.
-  var EVENT_SOURCES = ['/api/thai-roads', 'https://event.longdo.com/feed/json'];
-  var BKK_SENSORS = '/api/roads';
+  var F = window.Floods;
   var REFRESH_MS = 2 * 60 * 1000;
   var PAGE = 20;
 
@@ -17,72 +15,8 @@
   var S = { items: [], tab: 'all', q: '', prov: '', shown: PAGE, me: null, open: null, markers: {}, fitted: false };
   var $ = function (id) { return document.getElementById(id); };
 
-  function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
-  }
-  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim(); }
-
-  // Feed times are Thai local time without a zone.
-  function parseTH(s) { return s ? new Date(String(s).replace(' ', 'T') + '+07:00') : null; }
-  function ago(d) {
-    if (!d) return '';
-    var m = Math.max(0, (Date.now() - d) / 60000);
-    if (m < 60) return Math.round(m) + ' นาทีก่อน';
-    if (m < 1440) return Math.floor(m / 60) + ' ชม. ก่อน';
-    return Math.floor(m / 1440) + ' วันก่อน';
-  }
-  function when(d) {
-    return d ? d.toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) + ' น.' : '–';
-  }
-  function km(a, b) {
-    var x = (b.lng - a.lng) * Math.cos(a.lat * Math.PI / 180) * 111.32, y = (b.lat - a.lat) * 110.57;
-    return Math.sqrt(x * x + y * y);
-  }
-  function dist(d) { return d < 1 ? Math.round(d * 100) * 10 + ' ม.' : d < 10 ? d.toFixed(1) + ' กม.' : Math.round(d) + ' กม.'; }
+  var esc = F.esc, css = F.css, ago = F.ago, when = F.when, km = F.km, dist = F.dist;
   function norm(s) { return String(s || '').toLowerCase().replace(/ถนน/g, 'ถ.').replace(/ทางหลวงหมายเลข/g, 'ทล.').replace(/\s+/g, ''); }
-
-  // ---------- parse ----------
-  function fromEvent(e) {
-    var title = e.title || '';
-    var desc = e.description || '';
-    var all = title + ' ' + desc;
-    var status = /ผ่านไม่ได้|ไม่สามารถผ่านได้|ปิดการจราจร/.test(all) ? 'closed'
-      : /ผ่านได้/.test(title) ? 'open' : 'report';
-    var prov = (desc.match(/จ\.\s*([^\s,()]+)/) || title.match(/จ\.\s*([^\s,()]+)/) || [])[1] || '';
-    var amp = (desc.match(/อ\.\s*([^\s,()]+)/) || [])[1];
-    var kmPost = (desc.match(/กม\.\s*ที่\s*([\d+]+\s*-\s*[\d+]+|[\d+]+)/) || [])[1];
-    var place = [kmPost ? 'กม. ' + kmPost.replace(/\s+/g, '') : '', amp ? 'อ.' + amp : '', prov ? 'จ.' + prov : ''].filter(Boolean).join(' · ');
-    return {
-      id: 'e' + e.eid,
-      status: status,
-      title: title.replace(/\s*\((ผ่านได้|ผ่านไม่ได้)\)\s*$/, ''),
-      place: place || desc.split('\n')[0].slice(0, 90),
-      detail: desc,
-      small: /รถเล็ก/.test(all) && status === 'closed' ? 'รถเล็กผ่านไม่ได้' : '',
-      prov: prov,
-      lat: +e.latitude, lng: +e.longitude,
-      start: parseTH(e.start),
-      source: e.contributor === 'DOH Admin' ? 'กรมทางหลวง' : 'ผู้ใช้ Longdo Traffic'
-    };
-  }
-
-  function fromSensor(r) {
-    return {
-      id: 's' + r.code,
-      status: 'sensor',
-      title: r.name,
-      place: [r.kind === 2 ? 'อุโมงค์' : '', r.district ? 'เขต' + r.district : '', 'จ.กรุงเทพมหานคร'].filter(Boolean).join(' · '),
-      detail: '',
-      depth: r.grp === 2 && r.depth >= 20 ? '≥20' : r.depth,
-      wet: r.level,
-      prov: 'กรุงเทพมหานคร',
-      lat: r.lat, lng: r.lng,
-      start: parseTH(r.since || r.measured_at),
-      source: 'เซ็นเซอร์ สำนักการระบายน้ำ กทม.'
-    };
-  }
 
   // ---------- filter ----------
   function base() {
@@ -233,38 +167,12 @@
   }
 
   // ---------- data ----------
-  function getJSON(url) {
-    return fetch(url, { cache: 'no-cache' }).then(function (r) {
-      if (!r.ok) throw new Error(url + ' ' + r.status);
-      return r.json();
-    });
-  }
-
-  function loadEvents(i) {
-    i = i || 0;
-    return getJSON(EVENT_SOURCES[i]).then(function (d) {
-      if (!Array.isArray(d)) throw new Error('bad payload');
-      return d;
-    }, function (err) {
-      if (i + 1 < EVENT_SOURCES.length) return loadEvents(i + 1);
-      throw err;
-    });
-  }
-
   function refresh() {
     var btn = $('refresh');
     btn.classList.add('is-loading');
-    var events = loadEvents().then(function (d) {
-      return d.filter(function (e) { return e.icon === 'flood' || String(e.type) === '6'; }).map(fromEvent);
-    });
-    // Bangkok road sensors are a bonus; the page works without them.
-    var sensors = getJSON(BKK_SENSORS).then(function (d) {
-      return (d.roads || []).filter(function (r) { return r.level === 'flood' || r.level === 'slight'; }).map(fromSensor);
-    }, function () { return []; });
-
-    return Promise.all([events, sensors]).then(function (res) {
+    return F.load().then(function (items) {
       var first = !S.items.length;
-      S.items = res[0].concat(res[1]);
+      S.items = items;
       renderSummary();
       render(first);
       $('notice').hidden = true;
@@ -343,13 +251,7 @@
   $('more').addEventListener('click', function () { S.shown += PAGE; renderList(visible()); });
   $('near').addEventListener('click', nearMe);
   $('refresh').addEventListener('click', refresh);
-  $('theme').addEventListener('click', function () {
-    var t = document.documentElement.dataset.theme;
-    var dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.dataset.theme = dark ? 'light' : 'dark';
-    try { localStorage.setItem('theme', dark ? 'light' : 'dark'); } catch (e) {}
-    drawMap(visible());
-  });
+  $('theme').addEventListener('click', function () { F.toggleTheme(function () { drawMap(visible()); }); });
 
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
   setInterval(function () { if (!document.hidden) refresh(); }, REFRESH_MS);
