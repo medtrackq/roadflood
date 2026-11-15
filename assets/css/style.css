@@ -321,7 +321,7 @@ main { padding-top: 18px; padding-bottom: 32px; display: grid; gap: 16px; }
 .rt-map-wrap { position: sticky; top: 76px; }
 .rt-map { height: calc(100vh - 150px); }
 
-.rt-form { display: grid; gap: 8px; position: relative; }
+.rt-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; position: relative; }
 .rt-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
 .rt-field { position: relative; display: flex; align-items: center; gap: 8px; }
 .rt-dot { display: grid; place-items: center; width: 26px; height: 26px; flex: none; border-radius: 50%; font-size: 13px; font-weight: 700; color: #fff; }
@@ -419,7 +419,7 @@ main { padding-top: 18px; padding-bottom: 32px; display: grid; gap: 16px; }
 .sw--crit { background: var(--crit); } .sw--warn { background: var(--warn); } .sw--low { background: var(--low); } .sw--unk { background: var(--unk); }
 
 @media (max-width: 900px) {
-  .rt-body { grid-template-columns: 1fr; }
+  .rt-body { grid-template-columns: minmax(0, 1fr); }
   .rt-map-wrap { position: static; }
   .rt-map { height: 44vh; min-height: 280px; }
 }
