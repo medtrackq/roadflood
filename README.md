@@ -53,11 +53,13 @@ npm start            # หรือ node server.mjs
 
 `server.mjs` serve ไฟล์ static และ proxy ข้อมูลทั้งสองแหล่งพร้อม cache 60 วินาที (ถ้าต้นทางล่มชั่วคราวจะตอบข้อมูลล่าสุดที่มี) feed ของ Longdo ส่ง CORS มาด้วย จึงเปิด `index.html` บนเว็บ static อย่างเดียว (เช่น GitHub Pages) ได้ แต่จะไม่มีข้อมูลเซ็นเซอร์ กทม.
 
-## Deploy บน Render
+## Deploy บน Railway
 
-1. New + → **Web Service** → เลือก repo `medtrackq/roadflood`
-2. Branch: `main` · Runtime: **Node** · Build Command: `npm install` · Start Command: `npm start` · Instance: **Free** · Region: Singapore
-3. กด Create แล้วรอจนขึ้น "Deploy live"
+1. เข้า [railway.com](https://railway.com) → **New Project** → **Deploy from GitHub repo** → เลือก `medtrackq/roadflood`
+2. Railway ตรวจเจอ `package.json` แล้วรัน `npm start` ให้เอง และส่งพอร์ตมาทางตัวแปร `PORT` ซึ่ง `server.mjs` ใช้อยู่แล้ว ไม่ต้องตั้งค่าอะไรเพิ่ม
+3. ที่ service → **Settings** → **Source** ตรวจว่า Branch เป็น `main`
+4. **Settings** → **Networking** → **Generate Domain** เพื่อให้ได้ลิงก์ `https://….up.railway.app`
+5. ทุกครั้งที่ push ขึ้น `main` Railway จะ deploy ใหม่ให้เอง
 
 ## โครงสร้าง
 
